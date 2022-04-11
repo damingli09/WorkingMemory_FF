@@ -1,5 +1,6 @@
 # WorkingMemory_FF
 
-There hold the supplementary figures of all the analyzed neurons in the manuscript "Trial-to-trial variability of spiking delay activity in prefrontal cortex constrains burst-coding models of working memory" published at The Journal of Neuroscience: https://www.jneurosci.org/content/41/43/8928.long
+This is the repo for the paper:
+Li, D., Constantinidis, C., & Murray, J. D. (2021). Trial-to-trial variability of spiking delay activity in prefrontal cortex constrains burst-coding models of working memory. Journal of Neuroscience, 41(43), 8928-8945.
 
-This repository is under construction, and will be periodically updated over the next couple of months. Model simulation code and data analysis scripts will be progressively cleaned and uploaded. 
+
