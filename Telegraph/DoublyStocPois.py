@@ -7,6 +7,8 @@ This simulation code instantiates a doubly stochastic Poisson process with calcu
 import numpy as np
 import math
 import matplotlib.pyplot as plt
+import matplotlib.patches as patches
+from matplotlib.collections import PatchCollection
 
 class DoublyStocPois(object):
     def __init__(self, rH, rL, tauH, tauL, duration=3):
@@ -28,11 +30,12 @@ class DoublyStocPois(object):
         self.tauL = tauL
         self.duration = duration
 
-    def run(self, ntrials=20):
+    def run(self, refractoriness=False, ntrials=20):
         '''
         Simulates the model
 
         Parameters:
+            refractoriness: if True, a 2 ms of refractoriness is added
             ntrials: number of trials
 
         Returns:
@@ -65,11 +68,12 @@ class DoublyStocPois(object):
             train = []
             while t < self.duration:
                 dt = np.random.exponential(1.0/self.rH)
-                '''
-                if dt < 2: # refractoriness
-                    #t = t + dt # should forward time step or not?
-                    continue
-                '''
+                
+                if refractoriness:
+                    if dt < 2: # refractoriness
+                        #t = t + dt 
+                        continue
+                
                 if (t + dt) > self.duration:
                     break
                 t = t + dt
@@ -151,27 +155,31 @@ class DoublyStocPois(object):
             FF: Fano factor
         '''
         
-        FR = self.counts.mean(axis=0)  # mean spike count, not rate
+        FR = self.counts.mean(axis=0)  # mean spike count, not rate yet
         variance = np.var(self.counts, axis=0, ddof=1)
         FF = np.divide(variance,FR)
         binsize = self.duration/self.counts.shape[1]
 
         return FR/binsize, FF
 
-    def plot_telegraph(self, trialNum=0):
+    def raster_plot(self, trialNum=0):
         '''
-        Visualize a telegraph
+        Visualize a telegraph and the corresponding spike train
+
+        Parameters:
+            trialNum: trial index
         '''
 
         temps = np.linspace(0, self.duration, num=100000)
         tele = np.zeros(len(temps))
         assert trialNum < len(self.telegraphs)
-        arr = self.telegraphs[trialNum]  
+        switchtime = self.telegraphs[trialNum]  
+        spikes = self.timings[trialNum] 
 
         for j in range(len(temps)):
             t = temps[j]
-            for i in range(len(arr)):
-                if arr[i] >= t:
+            for i in range(len(switchtime)):
+                if switchtime[i] >= t:
                     flag = i
                     break
             
@@ -180,8 +188,27 @@ class DoublyStocPois(object):
             else:
                 tele[j] = self.rH
         
-        plt.figure(figsize=(8,1))        
+        plt.figure(figsize=(8,2))  
+        plt.subplot(211)      
         plt.plot(temps,tele,linewidth = 3) 
+        plt.xlim([0,self.duration])
         ax = plt.gca()
         ax.axis('off')
+
+        plt.subplot(212)
+        plt.plot(spikes,np.ones(len(spikes)),color="k",linestyle = 'None', marker="|",markersize = 45)
+        plt.xlim([0,self.duration])
+        '''
+        markboxes = []
+        for j in range(len(switchtime)//2):
+            print(j)
+            rect = patches.Rectangle((switchtime[2*j],-0.1),(switchtime[2*j+1]-switchtime[2*j]),0.2,linewidth=0.5,edgecolor='magenta',facecolor='magenta')
+            markboxes.append(rect)
+    
+        pc = PatchCollection(markboxes,facecolor='magenta',alpha=0.5,edgecolor='None')
+        ax.add_collection(pc)
+        '''
+        ax = plt.gca()
+        ax.axis('off')
+
         plt.show()
