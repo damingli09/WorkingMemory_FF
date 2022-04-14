@@ -7,4 +7,8 @@ The "Telegraph" folder contains theoretical characterization, simulation, and em
 
 The "Circuit models" folder contains simulation code for each one of the three circuit models used in the paper.
 
+The "Empirical Analysis" folder contains spike train empirical analysis code. 
+
 The "Supplementary figures" folder contains single neuron plots (such as the ones in Figure 6 of the paper) for all the analyzed neurons in the three WM tasks.
+
+This repo is under construction.
