@@ -136,6 +136,19 @@ class SpikeTrainAnalysis(object):
 
         return pvalue_evolution
 
+    def consecutive_indices(self, array):
+        '''
+        Test if there are at least two consecutive bins with well-tuned activity
+        '''
+
+        consecutive = False
+        for element in array:
+            if ((element+1) in array):
+                consecutive = True
+                break
+
+        return consecutive
+
     def fit(self, neuron, start, end, binsize=0.25, ANOVA=True):
         '''
         Compute mean firing rate, Fano factor, and run F test for a given neuron in a task epoch.
@@ -146,6 +159,12 @@ class SpikeTrainAnalysis(object):
             end: end of the analysis window, in ms
             binsize: window size, 250 ms
             ANOVA: if True, F-test is used (such as ODR and MNM), otherwise linear regression is applied (such as VDD)
+        
+        Returns:
+            FR_Mat: mean firing rate matrix (stimulus by time bins)
+            FF_Mat: FF matrix (stimulus by time bins)
+            pvalues: p value of the tuning test at each time bin
+            is_tuned: indicates if this is a well-tuned neuron
         '''
 
         self.bins = np.linspace(start,end,num=(end-start)/binsize+1)
@@ -164,5 +183,7 @@ class SpikeTrainAnalysis(object):
                 FF_Mat = np.vstack([FF_Mat, FF_evolution])
 
         pvalues = self.tuning(neuron, start, end, binsize, ANOVA, FR_Mat)
+        well_tuned_indices = np.where(pvalues < 0.05)[0]
+        is_tuned = self.consecutive_indices(well_tuned_indices)
 
-        return FR_Mat, FF_Mat, pvalues
+        return FR_Mat, FF_Mat, pvalues, is_tuned
