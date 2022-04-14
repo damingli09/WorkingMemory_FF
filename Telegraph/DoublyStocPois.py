@@ -64,6 +64,7 @@ class DoublyStocPois(object):
             switchings.append(self.duration)  # end timing
             telegraphs.append(switchings)  # append trial
             ### simulate the spike train
+            '''
             t = 0.0
             train = []
             while t < self.duration:
@@ -94,7 +95,26 @@ class DoublyStocPois(object):
                 else:
                     train.append(t)
             timings.append(train)
+            '''
 
+            t = 0.0
+            train = []
+            for i in range(len(switchings)): # determine if t is in high state or low state
+                if switchings[i] == 0: continue
+
+                if i%2 == 0:
+                    rate = self.rL
+                else:
+                    rate = self.rH
+
+                while t <= switchings[i]:
+                    dt = np.random.exponential(1.0/rate)
+                    t += dt
+                    if t <= switchings[i]:
+                        train.append(t)
+
+            timings.append(train)
+                    
         self.telegraphs = telegraphs
         self.timings = timings
         
