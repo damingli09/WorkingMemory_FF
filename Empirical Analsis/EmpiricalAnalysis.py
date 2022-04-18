@@ -11,7 +11,8 @@ from scipy import stats
 import matplotlib.pyplot as plt
 
 class SpikeTrainAnalysis(object):
-    def __init__(self, df_spikes, df_stimulus, df_correct, stim_list=None):
+    def __init__(self, df_spikes, df_stimulus, df_correct, stim_list=None, 
+                start_fixation=0, end_fixation=1000, start_delay=1750, end_delay=4750, binsize=250):
         '''
         Instantiates a spike train analysis instance
 
@@ -21,6 +22,11 @@ class SpikeTrainAnalysis(object):
             df_correct: a pandas dataframe with each column being a neuron, and binary entries indicating if that is a correct trial
             All these dataframes should match each other
             stim_list: list of all stimulus condition
+            start_fixation: start time of the foreperiod, in ms
+            end_fixation: end time of the foreperiod, in ms
+            start_delay: start time of the delay, in ms
+            end_delay: end time of the delay, in ms
+            binsize: size of the analysis window, in ms
         '''
 
         self.allneurons = df_spikes.columns.tolist()  # list of all neurons' name
@@ -33,6 +39,11 @@ class SpikeTrainAnalysis(object):
         self.df_spikes = df_spikes
         self.df_stimulus = df_stimulus
         self.df_correct = df_correct
+        self.start_fixation = start_fixation
+        self.end_fixation = end_fixation
+        self.start_delay = start_delay
+        self.end_delay = end_delay
+        self.binsize = binsize
 
     def spike_count(self, series, start, end):
         '''
@@ -75,7 +86,7 @@ class SpikeTrainAnalysis(object):
 
         return FR/self.binsize, FF
 
-    def spike_count_uner_a_stimulus(self, stimulus, neuron, start, end, binsize):
+    def spike_count_uner_a_stimulus(self, stimulus, neuron, start, end):
         '''
         Create the spike count matrix for a given neuron under a stimulus condition
 
@@ -84,7 +95,6 @@ class SpikeTrainAnalysis(object):
             neuron: the neuron's name, a string
             start: start of the analysis window, in ms; for the delay period analysis this may be 250 ms after the cue offset
             end: end of the analysis window, in ms
-            binsize: window size, 250 ms
 
         Returns:
             counts: spike count matrix (trials by time bin)
@@ -96,7 +106,7 @@ class SpikeTrainAnalysis(object):
 
         return counts
 
-    def tuning(self, neuron, start, end, binsize=0.25, ANOVA=True, FR_Mat=None):
+    def tuning(self, neuron, start, end, binsize=250, ANOVA=True, FR_Mat=None):
         '''
         Test if a neuron at a time bin is well tuned
 
@@ -149,7 +159,7 @@ class SpikeTrainAnalysis(object):
 
         return consecutive
 
-    def fit(self, neuron, start, end, binsize=0.25, ANOVA=True):
+    def fit(self, neuron, start, end, binsize=250, ANOVA=True):
         '''
         Compute mean firing rate, Fano factor, and run F test for a given neuron in a task epoch.
 
@@ -187,3 +197,63 @@ class SpikeTrainAnalysis(object):
         is_tuned = self.consecutive_indices(well_tuned_indices)
 
         return FR_Mat, FF_Mat, pvalues, is_tuned
+
+    def single_neuron_stat(self, neuron):
+        '''
+        Summarize single neuron's behaviors in the task
+
+        Parameters:
+            neuron: name of the neuron
+
+        Returns:
+            FF_delay_preferred: mean FF during delay under the preferred stimulus
+            FF_delay_least_preferred: mean FF during delay under the least preferred stimulus
+            FF_foreperiod: mean FF during the foreperiod
+            is_tuned: indicates if the neuron is well tuned during delay
+            corFRFF, corFRFF_p: Pearson correlation (and p value) between mean firing rate and FF across stimulus conditions
+            preferred_stim: the most preferred stimulus
+            least_preferred_stim: the least preferred stimulus
+            FF_prefered_bin: FF under the preferred stimulus at each tuned bin
+            FF_least_prefered_bin: FF under the least preferred stimulus at each tuned bin
+        '''
+
+        ### Foreperiod
+        _, FF_Mat, _, _ = self.fit(neuron, self.start_fixation, self.end_fixation, binsize=self.binsize, ANOVA=False)
+        FF_foreperiod = np.nanmean(FF_Mat)
+
+        ### Delay
+        FR_Mat, FF_Mat, pvalues, is_tuned = self.fit(neuron, self.start_delay, self.end_delay, binsize=self.binsize, ANOVA=True)
+        FF_temp = FF_Mat[:,pvalues < 0.05]
+        FR_temp = FR_Mat[:,pvalues < 0.05]
+
+        bin_FF_delay_preferred = []
+        bin_FF_delay_unpreferred = []
+        for i in range(FF_temp.shape[1]):
+            stim_preferred = np.nanargmax(FR_temp[:,i]) # preferred stim for that bin
+            stim_least_preferred = np.nanargmin(FR_temp[:,i])
+            bin_FF_delay_preferred.append(FF_Mat[stim_preferred,i])
+            bin_FF_delay_unpreferred.append(FF_Mat[stim_least_preferred,i])
+
+        FF_Array = np.nanmean(FF_Mat[:,pvalues < 0.05],axis=1) # mean FF under each stimulus
+        FR_Array = np.nanmean(FR_Mat[:,pvalues < 0.05],axis=1) # mean FR under each stimulus
+        stim_preferred = np.nanargmax(FR_Array)
+        stim_least_preferred = np.nanargmin(FR_Array)
+        FF_delay_preferred = FF_Array[stim_preferred]
+        FF_delay_least_preferred = FF_Array[stim_least_preferred]
+
+        ### cor(FR, FF)
+        if np.shape(FR_temp)[1] == 0:
+            corFRFF, corFRFF_p = np.nan, np.nan
+        else:
+            FF_Array = FF_temp[:,0]
+            FR_Array = FR_temp[:,0]
+            
+            for i in range(np.shape(FR_temp)[1]):
+                if i == 0:
+                    continue
+                FF_Array = np.append(FF_Array,FF_temp[:,i])
+                FR_Array = np.append(FR_Array,FR_temp[:,i])
+
+            corFRFF, corFRFF_p = stats.pearsonr(FF_Array[~np.isnan(FR_Array)], FR_Array[~np.isnan(FR_Array)])
+        
+        return FF_delay_preferred, FF_delay_least_preferred, FF_foreperiod, is_tuned, corFRFF, corFRFF_p, stim_preferred, stim_least_preferred, np.array(bin_FF_delay_preferred), np.array(bin_FF_delay_unpreferred)
