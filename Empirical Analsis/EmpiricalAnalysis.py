@@ -84,9 +84,9 @@ class SpikeTrainAnalysis(object):
         variance = np.var(counts, axis=0, ddof=1)
         FF = np.divide(variance,FR)
 
-        return FR/self.binsize, FF
+        return 1000*(FR/self.binsize), FF
 
-    def spike_count_uner_a_stimulus(self, stimulus, neuron, start, end):
+    def spike_count_under_a_stimulus(self, stimulus, neuron, start, end):
         '''
         Create the spike count matrix for a given neuron under a stimulus condition
 
@@ -122,14 +122,14 @@ class SpikeTrainAnalysis(object):
             pvalues: an array of p values at each time bin
         '''
 
-        self.bins = np.linspace(start,end,num=(end-start)/binsize+1)
+        self.bins = np.linspace(start,end,num=int((end-start)/binsize+1))
         pvalue_evolution = np.zeros(len(self.bins)-1) 
 
         if ANOVA:
             for i in range(len(self.bins)-1):   
                 dic = {}
                 for k in range(len(self.stim_list)):
-                    stimulusk = self.spike_count_under_a_stimulus(self.stim_list[k], neuron, start, end, binsize)[:,i]
+                    stimulusk = self.spike_count_under_a_stimulus(self.stim_list[k], neuron, start, end)[:,i]
                     if np.mean(stimulusk) > 0:
                         dic[str(k)] = stimulusk
                 if len(dic.keys()) > 1:
@@ -177,11 +177,12 @@ class SpikeTrainAnalysis(object):
             is_tuned: indicates if this is a well-tuned neuron
         '''
 
-        self.bins = np.linspace(start,end,num=(end-start)/binsize+1)
+        self.bins = np.linspace(start,end,num=int((end-start)/binsize+1))
 
         for i in range(len(self.stim_list)): 
             stimulus = self.stim_list[i]  
             series = self.df_spikes[neuron][(self.df_correct[neuron]==1.0)&(self.df_stimulus[neuron]==stimulus)]
+            series.index = range(series.size) 
             counts = self.spike_count(series, start, end)  # trials by bins
             FR_evolution, FF_evolution = self.empStats(counts)
 
@@ -227,12 +228,12 @@ class SpikeTrainAnalysis(object):
         FR_temp = FR_Mat[:,pvalues < 0.05]
 
         bin_FF_delay_preferred = []
-        bin_FF_delay_unpreferred = []
+        bin_FF_delay_least_preferred = []
         for i in range(FF_temp.shape[1]):
             stim_preferred = np.nanargmax(FR_temp[:,i]) # preferred stim for that bin
             stim_least_preferred = np.nanargmin(FR_temp[:,i])
             bin_FF_delay_preferred.append(FF_Mat[stim_preferred,i])
-            bin_FF_delay_unpreferred.append(FF_Mat[stim_least_preferred,i])
+            bin_FF_delay_least_preferred.append(FF_Mat[stim_least_preferred,i])
 
         FF_Array = np.nanmean(FF_Mat[:,pvalues < 0.05],axis=1) # mean FF under each stimulus
         FR_Array = np.nanmean(FR_Mat[:,pvalues < 0.05],axis=1) # mean FR under each stimulus
@@ -240,6 +241,8 @@ class SpikeTrainAnalysis(object):
         stim_least_preferred = np.nanargmin(FR_Array)
         FF_delay_preferred = FF_Array[stim_preferred]
         FF_delay_least_preferred = FF_Array[stim_least_preferred]
+        bin_FF_delay_preferred = np.array(bin_FF_delay_preferred)
+        bin_FF_delay_least_preferred = np.array(bin_FF_delay_least_preferred)
 
         ### cor(FR, FF)
         if np.shape(FR_temp)[1] == 0:
@@ -254,6 +257,6 @@ class SpikeTrainAnalysis(object):
                 FF_Array = np.append(FF_Array,FF_temp[:,i])
                 FR_Array = np.append(FR_Array,FR_temp[:,i])
 
-            corFRFF, corFRFF_p = stats.pearsonr(FF_Array[~np.isnan(FR_Array)], FR_Array[~np.isnan(FR_Array)])
-        
-        return FF_delay_preferred, FF_delay_least_preferred, FF_foreperiod, is_tuned, corFRFF, corFRFF_p, stim_preferred, stim_least_preferred, np.array(bin_FF_delay_preferred), np.array(bin_FF_delay_unpreferred)
+            corFRFF, corFRFF_p = stats.pearsonr(FF_Array[~np.isnan(FF_Array)], FR_Array[~np.isnan(FF_Array)])
+
+        return FF_delay_preferred, FF_delay_least_preferred, FF_foreperiod, is_tuned, corFRFF, corFRFF_p, stim_preferred, stim_least_preferred, bin_FF_delay_preferred, bin_FF_delay_least_preferred
