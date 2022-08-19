@@ -125,7 +125,7 @@ class DoublyStocPois(object):
         Calculate the spike counts of the simulation results
 
         Parameters:
-            binsize: bin size, in s
+            binsize: window size, in s
         '''
         
         nbins = int(self.duration/binsize)
